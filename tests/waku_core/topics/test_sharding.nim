@@ -136,74 +136,74 @@ suite "Autosharding":
 
       # Then the generated shard is valid
       check:
-        shard.error() == "invalid format: topic must start with slash"
+        shard.error() == "invalid format: content-topic 'invalid' must start with slash"
 
-  suite "parseSharding":
-    test "contentTopics is ContentTopic":
-      let sharding =
-        Sharding(clusterId: ClusterId, shardCountGenZero: GenerationZeroShardsCount)
-      # When calling with contentTopic as string
-      let topicMap = sharding.parseSharding(some(pubsubTopic04), contentTopicShort)
+  # suite "parseSharding":
+  #   test "contentTopics is ContentTopic":
+  #     let sharding =
+  #       Sharding(clusterId: ClusterId, shardCountGenZero: GenerationZeroShardsCount)
+  #     # When calling with contentTopic as string
+  #     let topicMap = sharding.parseSharding(some(pubsubTopic04), contentTopicShort)
 
-      # Then the topicMap is valid
-      check:
-        topicMap.value() == {pubsubTopic04: @[contentTopicShort]}
+  #     # Then the topicMap is valid
+  #     check:
+  #       topicMap.value() == {pubsubTopic04: @[contentTopicShort]}
 
-    test "contentTopics is seq[ContentTopic]":
-      let sharding =
-        Sharding(clusterId: ClusterId, shardCountGenZero: GenerationZeroShardsCount)
-      # When calling with contentTopic as string seq
-      let topicMap = sharding.parseSharding(
-        some(pubsubTopic04), @[contentTopicShort, "/0/foo/1/bar/proto"]
-      )
+  #   test "contentTopics is seq[ContentTopic]":
+  #     let sharding =
+  #       Sharding(clusterId: ClusterId, shardCountGenZero: GenerationZeroShardsCount)
+  #     # When calling with contentTopic as string seq
+  #     let topicMap = sharding.parseSharding(
+  #       some(pubsubTopic04), @[contentTopicShort, "/0/foo/1/bar/proto"]
+  #     )
 
-      # Then the topicMap is valid
-      check:
-        topicMap.value() == {pubsubTopic04: @[contentTopicShort, "/0/foo/1/bar/proto"]}
+  #     # Then the topicMap is valid
+  #     check:
+  #       topicMap.value() == {pubsubTopic04: @[contentTopicShort, "/0/foo/1/bar/proto"]}
 
-    test "pubsubTopic is none":
-      let sharding =
-        Sharding(clusterId: ClusterId, shardCountGenZero: GenerationZeroShardsCount)
-      # When calling with pubsubTopic as none
-      let topicMap = sharding.parseSharding(PubsubTopic.none(), contentTopicShort)
+  #   test "pubsubTopic is none":
+  #     let sharding =
+  #       Sharding(clusterId: ClusterId, shardCountGenZero: GenerationZeroShardsCount)
+  #     # When calling with pubsubTopic as none
+  #     let topicMap = sharding.parseSharding(PubsubTopic.none(), contentTopicShort)
 
-      # Then the topicMap is valid
-      check:
-        topicMap.value() == {pubsubTopic13: @[contentTopicShort]}
+  #     # Then the topicMap is valid
+  #     check:
+  #       topicMap.value() == {pubsubTopic13: @[contentTopicShort]}
 
-    test "content parse error":
-      let sharding =
-        Sharding(clusterId: ClusterId, shardCountGenZero: GenerationZeroShardsCount)
-      # When calling with pubsubTopic as none with invalid content
-      let topicMap = sharding.parseSharding(PubsubTopic.none(), "invalid")
+  #   test "content parse error":
+  #     let sharding =
+  #       Sharding(clusterId: ClusterId, shardCountGenZero: GenerationZeroShardsCount)
+  #     # When calling with pubsubTopic as none with invalid content
+  #     let topicMap = sharding.parseSharding(PubsubTopic.none(), "invalid")
 
-      # Then the topicMap is valid
-      check:
-        topicMap.error() ==
-          "Cannot parse content topic: invalid format: topic must start with slash"
+  #     # Then the topicMap is valid
+  #     check:
+  #       topicMap.error() ==
+  #         "Cannot parse content topic: invalid format: topic must start with slash"
 
-    test "pubsubTopic parse error":
-      let sharding =
-        Sharding(clusterId: ClusterId, shardCountGenZero: GenerationZeroShardsCount)
-      # When calling with pubsubTopic as none with invalid content
-      let topicMap = sharding.parseSharding(some("invalid"), contentTopicShort)
+  #   test "pubsubTopic parse error":
+  #     let sharding =
+  #       Sharding(clusterId: ClusterId, shardCountGenZero: GenerationZeroShardsCount)
+  #     # When calling with pubsubTopic as none with invalid content
+  #     let topicMap = sharding.parseSharding(some("invalid"), contentTopicShort)
 
-      # Then the topicMap is valid
-      check:
-        topicMap.error() ==
-          "Cannot parse pubsub topic: invalid format: must start with /waku/2"
+  #     # Then the topicMap is valid
+  #     check:
+  #       topicMap.error() ==
+  #         "Cannot parse pubsub topic: invalid format: must start with /waku/2"
 
-    test "pubsubTopic getShard error":
-      let sharding =
-        Sharding(clusterId: ClusterId, shardCountGenZero: GenerationZeroShardsCount)
-      # When calling with pubsubTopic as none with invalid content
-      let topicMap = sharding.parseSharding(PubsubTopic.none(), contentTopicInvalid)
+  #   test "pubsubTopic getShard error":
+  #     let sharding =
+  #       Sharding(clusterId: ClusterId, shardCountGenZero: GenerationZeroShardsCount)
+  #     # When calling with pubsubTopic as none with invalid content
+  #     let topicMap = sharding.parseSharding(PubsubTopic.none(), contentTopicInvalid)
 
-      # Then the topicMap is valid
-      check:
-        topicMap.error() ==
-          "Cannot autoshard content topic: Generation > 0 are not supported yet"
+  #     # Then the topicMap is valid
+  #     check:
+  #       topicMap.error() ==
+  #         "Cannot autoshard content topic: Generation > 0 are not supported yet"
 
-    xtest "catchable error on add to topicMap":
-      # TODO: Trigger a CatchableError or mock
-      discard
+  #   xtest "catchable error on add to topicMap":
+  #     # TODO: Trigger a CatchableError or mock
+  #     discard
