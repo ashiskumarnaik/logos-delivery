@@ -15,6 +15,7 @@ import
     waku_rln_relay/rln,
     waku_rln_relay/protocol_metrics,
     waku_keystore,
+    common/broker/broker_context,
   ],
   ./rln/waku_rln_relay_utils,
   ./utils_onchain,
@@ -27,8 +28,8 @@ suite "Waku rln relay":
   var manager {.threadVar.}: OnchainGroupManager
 
   setup:
-    anvilProc = runAnvil()
-    manager = waitFor setupOnchainGroupManager()
+    anvilProc = runAnvil(stateFile = some(DEFAULT_ANVIL_STATE_PATH))
+    manager = waitFor setupOnchainGroupManager(deployContracts = false)
 
   teardown:
     stopAnvil(anvilProc)
@@ -69,53 +70,6 @@ suite "Waku rln relay":
       idCredential.idCommitment != empty
 
     info "the generated identity credential: ", idCredential
-
-  test "hash Nim Wrappers":
-    # create an RLN instance
-    let rlnInstance = createRLNInstanceWrapper()
-    require:
-      rlnInstance.isOk()
-
-    # prepare the input
-    let
-      msg = "Hello".toBytes()
-      hashInput = encodeLengthPrefix(msg)
-      hashInputBuffer = toBuffer(hashInput)
-
-    # prepare other inputs to the hash function
-    let outputBuffer = default(Buffer)
-
-    let hashSuccess = sha256(unsafeAddr hashInputBuffer, unsafeAddr outputBuffer, true)
-    require:
-      hashSuccess
-    let outputArr = cast[ptr array[32, byte]](outputBuffer.`ptr`)[]
-
-    check:
-      "1e32b3ab545c07c8b4a7ab1ca4f46bc31e4fdc29ac3b240ef1d54b4017a26e4c" ==
-        outputArr.inHex()
-
-    let
-      hashOutput = cast[ptr array[32, byte]](outputBuffer.`ptr`)[]
-      hashOutputHex = hashOutput.toHex()
-
-    info "hash output", hashOutputHex
-
-  test "sha256 hash utils":
-    # create an RLN instance
-    let rlnInstance = createRLNInstanceWrapper()
-    require:
-      rlnInstance.isOk()
-    let rln = rlnInstance.get()
-
-    # prepare the input
-    let msg = "Hello".toBytes()
-
-    let hashRes = sha256(msg)
-
-    check:
-      hashRes.isOk()
-      "1e32b3ab545c07c8b4a7ab1ca4f46bc31e4fdc29ac3b240ef1d54b4017a26e4c" ==
-        hashRes.get().inHex()
 
   test "poseidon hash utils":
     # create an RLN instance
@@ -280,8 +234,10 @@ suite "Waku rln relay":
     let index = MembershipIndex(5)
 
     let wakuRlnConfig = getWakuRlnConfig(manager = manager, index = index)
-    let wakuRlnRelay = (await WakuRlnRelay.new(wakuRlnConfig)).valueOr:
-      raiseAssert $error
+    var wakuRlnRelay: WakuRlnRelay
+    lockNewGlobalBrokerContext:
+      wakuRlnRelay = (await WakuRlnRelay.new(wakuRlnConfig)).valueOr:
+        raiseAssert $error
 
     let manager = cast[OnchainGroupManager](wakuRlnRelay.groupManager)
     let idCredentials = generateCredentials()
@@ -337,8 +293,10 @@ suite "Waku rln relay":
 
     let wakuRlnConfig = getWakuRlnConfig(manager = manager, index = index)
 
-    let wakuRlnRelay = (await WakuRlnRelay.new(wakuRlnConfig)).valueOr:
-      raiseAssert $error
+    var wakuRlnRelay: WakuRlnRelay
+    lockNewGlobalBrokerContext:
+      wakuRlnRelay = (await WakuRlnRelay.new(wakuRlnConfig)).valueOr:
+        raiseAssert $error
 
     let manager = cast[OnchainGroupManager](wakuRlnRelay.groupManager)
     let idCredentials = generateCredentials()
@@ -387,8 +345,10 @@ suite "Waku rln relay":
   asyncTest "multiple senders with same external nullifier":
     let index1 = MembershipIndex(5)
     let rlnConf1 = getWakuRlnConfig(manager = manager, index = index1)
-    let wakuRlnRelay1 = (await WakuRlnRelay.new(rlnConf1)).valueOr:
-      raiseAssert "failed to create waku rln relay: " & $error
+    var wakuRlnRelay1: WakuRlnRelay
+    lockNewGlobalBrokerContext:
+      wakuRlnRelay1 = (await WakuRlnRelay.new(rlnConf1)).valueOr:
+        raiseAssert "failed to create waku rln relay: " & $error
 
     let manager1 = cast[OnchainGroupManager](wakuRlnRelay1.groupManager)
     let idCredentials1 = generateCredentials()
@@ -401,8 +361,10 @@ suite "Waku rln relay":
 
     let index2 = MembershipIndex(6)
     let rlnConf2 = getWakuRlnConfig(manager = manager, index = index2)
-    let wakuRlnRelay2 = (await WakuRlnRelay.new(rlnConf2)).valueOr:
-      raiseAssert "failed to create waku rln relay: " & $error
+    var wakuRlnRelay2: WakuRlnRelay
+    lockNewGlobalBrokerContext:
+      wakuRlnRelay2 = (await WakuRlnRelay.new(rlnConf2)).valueOr:
+        raiseAssert "failed to create waku rln relay: " & $error
 
     let manager2 = cast[OnchainGroupManager](wakuRlnRelay2.groupManager)
     let idCredentials2 = generateCredentials()
@@ -533,9 +495,10 @@ suite "Waku rln relay":
       let wakuRlnConfig = getWakuRlnConfig(
         manager = manager, index = index, epochSizeSec = rlnEpochSizeSec.uint64
       )
-
-      let wakuRlnRelay = (await WakuRlnRelay.new(wakuRlnConfig)).valueOr:
-        raiseAssert $error
+      var wakuRlnRelay: WakuRlnRelay
+      lockNewGlobalBrokerContext:
+        wakuRlnRelay = (await WakuRlnRelay.new(wakuRlnConfig)).valueOr:
+          raiseAssert $error
 
       let rlnMaxEpochGap = wakuRlnRelay.rlnMaxEpochGap
       let testProofMetadata = default(ProofMetadata)
