@@ -45,7 +45,7 @@ type WakuArchive* = ref object
 
   validator: MessageValidator
 
-  retentionPolicy: Option[RetentionPolicy]
+  retentionPolicies: seq[RetentionPolicy]
 
   retentionPolicyHandle: Future[void]
   metricsHandle: Future[void]
@@ -82,13 +82,17 @@ proc new*(
     T: type WakuArchive,
     driver: ArchiveDriver,
     validator: MessageValidator = validate,
-    retentionPolicy = none(RetentionPolicy),
+    retentionPolicies = newSeq[RetentionPolicy](0),
 ): Result[T, string] =
   if driver.isNil():
     return err("archive driver is Nil")
 
-  let archive =
-    WakuArchive(driver: driver, validator: validator, retentionPolicy: retentionPolicy)
+  if retentionPolicies.len == 0:
+    return err("at least one retention policy must be provided")
+
+  let archive = WakuArchive(
+    driver: driver, validator: validator, retentionPolicies: retentionPolicies
+  )
 
   return ok(archive)
 
@@ -263,16 +267,15 @@ proc findMessages*(
   )
 
 proc periodicRetentionPolicy(self: WakuArchive) {.async.} =
-  let policy = self.retentionPolicy.get()
-
   while true:
-    info "executing message retention policy"
-    (await policy.execute(self.driver)).isOkOr:
-      waku_archive_errors.inc(labelValues = [retPolicyFailure])
-      error "failed execution of retention policy", error = error
-      await sleepAsync(WakuArchiveDefaultRetentionPolicyIntervalWhenError)
-      ## in case of error, let's try again faster
-      continue
+    for policy in self.retentionPolicies:
+      info "executing message retention policy", policy = $policy
+      (await policy.execute(self.driver)).isOkOr:
+        waku_archive_errors.inc(labelValues = [retPolicyFailure])
+        error "failed execution of retention policy", policy = $policy, error = error
+        await sleepAsync(WakuArchiveDefaultRetentionPolicyIntervalWhenError)
+        ## in case of error, let's try again faster
+        continue
 
     await sleepAsync(WakuArchiveDefaultRetentionPolicyInterval)
 
@@ -289,7 +292,7 @@ proc periodicMetricReport(self: WakuArchive) {.async.} =
     await sleepAsync(WakuArchiveDefaultMetricsReportInterval)
 
 proc start*(self: WakuArchive) =
-  if self.retentionPolicy.isSome():
+  if self.retentionPolicies.len > 0:
     self.retentionPolicyHandle = self.periodicRetentionPolicy()
 
   self.metricsHandle = self.periodicMetricReport()
@@ -297,7 +300,7 @@ proc start*(self: WakuArchive) =
 proc stopWait*(self: WakuArchive) {.async.} =
   var futures: seq[Future[void]]
 
-  if self.retentionPolicy.isSome() and not self.retentionPolicyHandle.isNil():
+  if not self.retentionPolicyHandle.isNil():
     futures.add(self.retentionPolicyHandle.cancelAndWait())
 
   if not self.metricsHandle.isNil:
