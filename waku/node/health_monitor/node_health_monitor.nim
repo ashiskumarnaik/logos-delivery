@@ -21,6 +21,7 @@ import
     node/health_monitor/health_report,
     node/health_monitor/connection_status,
     node/health_monitor/protocol_health,
+    requests/health_requests,
   ]
 
 ## This module is aimed to check the state of the "self" Waku Node
@@ -28,9 +29,6 @@ import
 # randomize initializes sdt/random's random number generator
 # if not called, the outcome of randomization procedures will be the same in every run
 random.randomize()
-
-const HealthyThreshold* = 2
-  ## minimum peers required for all services for a Connected status, excluding Relay
 
 type NodeHealthMonitor* = ref object
   nodeHealth: HealthStatus
@@ -48,7 +46,8 @@ type NodeHealthMonitor* = ref object
     ## latest known connectivity strength (e.g. connected peer count) metric for each protocol.
     ## if it doesn't make sense for the protocol in question, this is set to zero.
   relayObserver: PubSubObserver
-  peerEventListener: EventWakuPeerListener
+  peerEventListener: WakuPeerEventListener
+  shardHealthListener: EventShardTopicHealthChangeListener
 
 func getHealth*(report: HealthReport, kind: WakuProtocol): ProtocolHealth =
   for h in report.protocolsHealth:
@@ -197,6 +196,17 @@ proc getFilterClientHealth(hm: NodeHealthMonitor): ProtocolHealth =
   if isNil(hm.node.wakuFilterClient):
     hm.strength[WakuProtocol.FilterClientProtocol] = 0
     return p.notMounted()
+
+  if isNil(hm.node.wakuRelay):
+    let edgeRes = RequestEdgeFilterPeerCount.request(hm.node.brokerCtx)
+    if edgeRes.isOk():
+      let peerCount = edgeRes.get().peerCount
+      if peerCount > 0:
+        hm.strength[WakuProtocol.FilterClientProtocol] = peerCount
+        return p.ready()
+    else:
+      error "Failed to request edge filter peer count", error = edgeRes.error
+      return p.notReady("Failed to request edge filter peer count: " & edgeRes.error)
 
   let peerCount = countCapablePeers(hm, WakuFilterSubscribeCodec)
   hm.strength[WakuProtocol.FilterClientProtocol] = peerCount
@@ -663,13 +673,22 @@ proc startHealthMonitor*(hm: NodeHealthMonitor): Result[void, string] =
     )
     hm.node.wakuRelay.addObserver(hm.relayObserver)
 
-  hm.peerEventListener = EventWakuPeer.listen(
+  hm.peerEventListener = WakuPeerEvent.listen(
     hm.node.brokerCtx,
-    proc(evt: EventWakuPeer): Future[void] {.async: (raises: []), gcsafe.} =
+    proc(evt: WakuPeerEvent): Future[void] {.async: (raises: []), gcsafe.} =
       ## Recompute health on any peer changing anything (join, leave, identify, metadata update)
       hm.healthUpdateEvent.fire(),
   ).valueOr:
     return err("Failed to subscribe to peer events: " & error)
+
+  hm.shardHealthListener = EventShardTopicHealthChange.listen(
+    hm.node.brokerCtx,
+    proc(
+        evt: EventShardTopicHealthChange
+    ): Future[void] {.async: (raises: []), gcsafe.} =
+      hm.healthUpdateEvent.fire(),
+  ).valueOr:
+    return err("Failed to subscribe to shard health events: " & error)
 
   hm.healthUpdateEvent = newAsyncEvent()
   hm.healthUpdateEvent.fire()
@@ -690,8 +709,8 @@ proc stopHealthMonitor*(hm: NodeHealthMonitor) {.async.} =
   if not isNil(hm.healthLoopFut):
     await hm.healthLoopFut.cancelAndWait()
 
-  if hm.peerEventListener.id != 0:
-    EventWakuPeer.dropListener(hm.node.brokerCtx, hm.peerEventListener)
+  WakuPeerEvent.dropListener(hm.node.brokerCtx, hm.peerEventListener)
+  EventShardTopicHealthChange.dropListener(hm.node.brokerCtx, hm.shardHealthListener)
 
   if not isNil(hm.node.wakuRelay) and not isNil(hm.relayObserver):
     hm.node.wakuRelay.removeObserver(hm.relayObserver)
