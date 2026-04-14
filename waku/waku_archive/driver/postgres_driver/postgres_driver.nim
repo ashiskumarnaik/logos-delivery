@@ -23,6 +23,9 @@ logScope:
 declarePublicGauge postgres_payload_size_bytes,
   "Payload size in bytes of correctly stored messages"
 
+logScope:
+  topics = "postgres driver"
+
 type PostgresDriver* = ref object of ArchiveDriver
   ## Establish a separate pools for read/write operations
   writeConnPool: PgAsyncPool
