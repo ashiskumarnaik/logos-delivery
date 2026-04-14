@@ -55,6 +55,8 @@
 - Add gasprice overflow check ([#3636](https://github.com/logos-messaging/logos-delivery/pull/3636)) ([a8590a0a](https://github.com/logos-messaging/logos-delivery/commit/a8590a0a))
 - Pin RLN dependencies to specific version ([#3649](https://github.com/logos-messaging/logos-delivery/pull/3649)) ([834eea94](https://github.com/logos-messaging/logos-delivery/commit/834eea94))
 - Update CI/README references after repository rename to logos-delivery ([#3729](https://github.com/logos-messaging/logos-delivery/pull/3729)) ([895f3e2d](https://github.com/logos-messaging/logos-delivery/commit/895f3e2d))
+- Simplify on chain group manager error handling ([#3678](https://github.com/logos-messaging/logos-delivery/pull/3678)) ([bc9454db](https://github.com/logos-messaging/logos-delivery/commit/bc9454db))
+- Extend RequestBroker with support for native/external types and sync requests ([#3665](https://github.com/logos-messaging/logos-delivery/pull/3665)) ([33233255](https://github.com/logos-messaging/logos-delivery/commit/33233255))
 
 ### This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
 
